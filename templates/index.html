@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ポモドーロタイマー</title>
+    <style>
+        body {
+            background-color: #2C2C2C;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding-top: 50px;
+        }
+        h1 {
+            font-size: 2em;
+        }
+        #timer {
+            font-size: 5em;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        #mode {
+            font-size: 1.2em;
+            color: #FF6B6B;
+        }
+        button {
+            font-size: 1em;
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+        }
+        #startBtn { background-color: #FF6B6B; }
+        #resetBtn { background-color: #555555; }
+    </style>
+</head>
+<body>
+    <h1>ポモドーロタイマー</h1>
+    <div id="mode">勉強中</div>
+    <div id="timer">25:00</div>
+    <button id="startBtn" onclick="toggleStart()">スタート</button>
+    <button id="resetBtn" onclick="resetTimer()">リセット</button>
+
+    <script>
+        const WORK_SECONDS = 25 * 60;
+        const BREAK_SECONDS = 5 * 60;
+
+        let remaining = WORK_SECONDS;
+        let isRunning = false;
+        let isWorkMode = true;
+        let timerId = null;
+
+        function updateDisplay() {
+            const mins = Math.floor(remaining / 60);
+            const secs = remaining % 60;
+            document.getElementById("timer").textContent =
+                String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
+        }
+
+        function toggleStart() {
+            if (isRunning) {
+                clearInterval(timerId);
+                isRunning = false;
+                document.getElementById("startBtn").textContent = "スタート";
+            } else {
+                isRunning = true;
+                document.getElementById("startBtn").textContent = "一時停止";
+                timerId = setInterval(() => {
+                    if (remaining > 0) {
+                        remaining--;
+                        updateDisplay();
+                    } else {
+                        clearInterval(timerId);
+                        isRunning = false;
+                        isWorkMode = !isWorkMode;
+                        remaining = isWorkMode ? WORK_SECONDS : BREAK_SECONDS;
+                        document.getElementById("mode").textContent = isWorkMode ? "勉強中" : "休憩中";
+                        document.getElementById("mode").style.color = isWorkMode ? "#FF6B6B" : "#6BCB77";
+                        document.getElementById("startBtn").textContent = "スタート";
+                        updateDisplay();
+                    }
+                }, 1000);
+            }
+        }
+
+        function resetTimer() {
+            if (!confirm("本当にリセットしますか？")) return;
+            clearInterval(timerId);
+            isRunning = false;
+            isWorkMode = true;
+            remaining = WORK_SECONDS;
+            document.getElementById("mode").textContent = "勉強中";
+            document.getElementById("mode").style.color = "#FF6B6B";
+            document.getElementById("startBtn").textContent = "スタート";
+            updateDisplay();
+        }
+    </script>
+</body>
+</html>
