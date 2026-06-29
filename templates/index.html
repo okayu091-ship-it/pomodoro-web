@@ -11,18 +11,10 @@
             text-align: center;
             padding-top: 50px;
         }
-        h1 {
-            font-size: 2em;
-        }
-        #timer {
-            font-size: 5em;
-            font-weight: bold;
-            margin: 20px 0;
-        }
-        #mode {
-            font-size: 1.2em;
-            color: #FF6B6B;
-        }
+        h1 { font-size: 2em; }
+        #modeDisplay { font-size: 0.9em; color: #AAAAAA; margin-bottom: 5px; }
+        #mode { font-size: 1.2em; color: #FF6B6B; }
+        #timer { font-size: 5em; font-weight: bold; margin: 20px 0; }
         button {
             font-size: 1em;
             padding: 10px 20px;
@@ -34,6 +26,9 @@
         }
         #startBtn { background-color: #FF6B6B; }
         #resetBtn { background-color: #555555; }
+        #settingsBtn { background-color: #777777; }
+        #breakBtn { background-color: #6BCB77; display: none; }
+        #total { font-size: 0.9em; color: #AAAAAA; margin: 10px 0; }
         #blocks {
             display: flex;
             flex-wrap: wrap;
@@ -48,19 +43,52 @@
             margin: 3px;
             border-radius: 4px;
         }
-        .block.done {
-            background-color: #FF6B6B;
+        .block.done { background-color: #FF6B6B; }
+
+        /* 設定モーダル */
+        #modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
         }
+        #modalBox {
+            background: #3C3C3C;
+            width: 280px;
+            margin: 150px auto;
+            padding: 30px;
+            border-radius: 10px;
+        }
+        #modalBox h2 { margin-bottom: 20px; }
+        #routineBtn { background-color: #FF6B6B; width: 200px; display: block; margin: 10px auto; }
+        #countupBtn { background-color: #4D96FF; width: 200px; display: block; margin: 10px auto; }
+        #closeModal { background-color: #555555; width: 200px; display: block; margin: 10px auto; }
     </style>
 </head>
 <body>
     <h1>ポモドーロタイマー</h1>
+    <div id="modeDisplay">モード：ルーティン</div>
     <div id="mode">勉強中</div>
     <div id="timer">25:00</div>
-    <button id="startBtn" onclick="toggleStart()">スタート</button>
-    <button id="resetBtn" onclick="resetTimer()">リセット</button>
+    <div>
+        <button id="startBtn" onclick="toggleStart()">スタート</button>
+        <button id="resetBtn" onclick="resetTimer()">リセット</button>
+        <button id="settingsBtn" onclick="openSettings()">設定</button>
+    </div>
+    <button id="breakBtn" onclick="startBreak()">休憩する</button>
     <div id="total">累計: 0時間0分（0ポモドーロ）</div>
     <div id="blocks"></div>
+
+    <!-- 設定モーダル -->
+    <div id="modal">
+        <div id="modalBox">
+            <h2>タイマーモード</h2>
+            <button id="routineBtn" onclick="setMode('routine')">ルーティンモード</button>
+            <button id="countupBtn" onclick="setMode('countup')">カウントアップモード</button>
+            <button id="closeModal" onclick="closeSettings()">閉じる</button>
+        </div>
+    </div>
 
     <script>
         const WORK_SECONDS = 25 * 60;
@@ -70,6 +98,9 @@
         let remaining = WORK_SECONDS;
         let isRunning = false;
         let isWorkMode = true;
+        let isCountUpMode = false;
+        let isCountUpActive = false;
+        let elapsed = 0;
         let timerId = null;
         let completedPomodoros = 0;
 
@@ -80,6 +111,20 @@
             block.className = "block";
             block.id = "block-" + i;
             blocksDiv.appendChild(block);
+        }
+
+        function updateDisplay() {
+            if (isCountUpActive) {
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                document.getElementById("timer").textContent =
+                    "+" + String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
+            } else {
+                const mins = Math.floor(remaining / 60);
+                const secs = remaining % 60;
+                document.getElementById("timer").textContent =
+                    String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
+            }
         }
 
         function updateBlocks() {
@@ -98,55 +143,103 @@
                 `累計: ${hours}時間${mins}分（${completedPomodoros}ポモドーロ）`;
         }
 
-        function updateDisplay() {
-            const mins = Math.floor(remaining / 60);
-            const secs = remaining % 60;
-            document.getElementById("timer").textContent =
-                String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
+        function tick() {
+            if (isCountUpActive) {
+                elapsed++;
+                updateDisplay();
+                timerId = setTimeout(tick, 1000);
+            } else if (remaining > 0) {
+                remaining--;
+                updateDisplay();
+                timerId = setTimeout(tick, 1000);
+            } else {
+                // タイマー終了
+                if (isWorkMode) {
+                    completedPomodoros++;
+                    updateBlocks();
+                    if (isCountUpMode) {
+                        // カウントアップモード：超過時間を計測・休憩ボタン表示
+                        isCountUpActive = true;
+                        elapsed = 0;
+                        document.getElementById("breakBtn").style.display = "inline-block";
+                        timerId = setTimeout(tick, 1000);
+                    } else {
+                        // ルーティンモード：自動で休憩へ
+                        switchMode();
+                        timerId = setTimeout(tick, 1000);
+                    }
+                } else {
+                    // 休憩終了 → スタート画面に戻る
+                    switchMode();
+                    isRunning = false;
+                    document.getElementById("startBtn").textContent = "スタート";
+                }
+            }
+        }
+
+        function switchMode() {
+            isWorkMode = !isWorkMode;
+            remaining = isWorkMode ? WORK_SECONDS : BREAK_SECONDS;
+            document.getElementById("mode").textContent = isWorkMode ? "勉強中" : "休憩中";
+            document.getElementById("mode").style.color = isWorkMode ? "#FF6B6B" : "#6BCB77";
+            updateDisplay();
         }
 
         function toggleStart() {
             if (isRunning) {
-                clearInterval(timerId);
+                clearTimeout(timerId);
                 isRunning = false;
                 document.getElementById("startBtn").textContent = "スタート";
             } else {
                 isRunning = true;
                 document.getElementById("startBtn").textContent = "一時停止";
-                timerId = setInterval(() => {
-                    if (remaining > 0) {
-                        remaining--;
-                        updateDisplay();
-                    } else {
-                        clearInterval(timerId);
-                        isRunning = false;
-                        if (isWorkMode) {
-                            completedPomodoros++;
-                            updateBlocks();
-                        }
-                        isWorkMode = !isWorkMode;
-                        remaining = isWorkMode ? WORK_SECONDS : BREAK_SECONDS;
-                        document.getElementById("mode").textContent = isWorkMode ? "勉強中" : "休憩中";
-                        document.getElementById("mode").style.color = isWorkMode ? "#FF6B6B" : "#6BCB77";
-                        document.getElementById("startBtn").textContent = "スタート";
-                        updateDisplay();
-                    }
-                }, 1000);
+                tick();
             }
+        }
+
+        function startBreak() {
+            clearTimeout(timerId);
+            isCountUpActive = false;
+            elapsed = 0;
+            document.getElementById("breakBtn").style.display = "none";
+            isWorkMode = false;
+            remaining = BREAK_SECONDS;
+            document.getElementById("mode").textContent = "休憩中";
+            document.getElementById("mode").style.color = "#6BCB77";
+            updateDisplay();
+            timerId = setTimeout(tick, 1000);
         }
 
         function resetTimer() {
             if (!confirm("本当にリセットしますか？")) return;
-            clearInterval(timerId);
+            clearTimeout(timerId);
             isRunning = false;
             isWorkMode = true;
+            isCountUpActive = false;
+            elapsed = 0;
             remaining = WORK_SECONDS;
             completedPomodoros = 0;
             document.getElementById("mode").textContent = "勉強中";
             document.getElementById("mode").style.color = "#FF6B6B";
             document.getElementById("startBtn").textContent = "スタート";
+            document.getElementById("breakBtn").style.display = "none";
             updateDisplay();
             updateBlocks();
+        }
+
+        function openSettings() {
+            document.getElementById("modal").style.display = "block";
+        }
+
+        function closeSettings() {
+            document.getElementById("modal").style.display = "none";
+        }
+
+        function setMode(mode) {
+            isCountUpMode = mode === "countup";
+            document.getElementById("modeDisplay").textContent =
+                isCountUpMode ? "モード：カウントアップ" : "モード：ルーティン";
+            closeSettings();
         }
     </script>
 </body>
