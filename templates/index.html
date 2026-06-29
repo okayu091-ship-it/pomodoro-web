@@ -34,6 +34,23 @@
         }
         #startBtn { background-color: #FF6B6B; }
         #resetBtn { background-color: #555555; }
+        #blocks {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 320px;
+            margin: 20px auto;
+        }
+        .block {
+            width: 30px;
+            height: 30px;
+            background-color: #444444;
+            margin: 3px;
+            border-radius: 4px;
+        }
+        .block.done {
+            background-color: #FF6B6B;
+        }
     </style>
 </head>
 <body>
@@ -42,15 +59,44 @@
     <div id="timer">25:00</div>
     <button id="startBtn" onclick="toggleStart()">スタート</button>
     <button id="resetBtn" onclick="resetTimer()">リセット</button>
+    <div id="total">累計: 0時間0分（0ポモドーロ）</div>
+    <div id="blocks"></div>
 
     <script>
         const WORK_SECONDS = 25 * 60;
         const BREAK_SECONDS = 5 * 60;
+        const TOTAL_BLOCKS = 40;
 
         let remaining = WORK_SECONDS;
         let isRunning = false;
         let isWorkMode = true;
         let timerId = null;
+        let completedPomodoros = 0;
+
+        // ブロックを40個作る
+        const blocksDiv = document.getElementById("blocks");
+        for (let i = 0; i < TOTAL_BLOCKS; i++) {
+            const block = document.createElement("div");
+            block.className = "block";
+            block.id = "block-" + i;
+            blocksDiv.appendChild(block);
+        }
+
+        function updateBlocks() {
+            for (let i = 0; i < TOTAL_BLOCKS; i++) {
+                const block = document.getElementById("block-" + i);
+                if (i < completedPomodoros) {
+                    block.classList.add("done");
+                } else {
+                    block.classList.remove("done");
+                }
+            }
+            const totalMins = completedPomodoros * 25;
+            const hours = Math.floor(totalMins / 60);
+            const mins = totalMins % 60;
+            document.getElementById("total").textContent =
+                `累計: ${hours}時間${mins}分（${completedPomodoros}ポモドーロ）`;
+        }
 
         function updateDisplay() {
             const mins = Math.floor(remaining / 60);
@@ -74,6 +120,10 @@
                     } else {
                         clearInterval(timerId);
                         isRunning = false;
+                        if (isWorkMode) {
+                            completedPomodoros++;
+                            updateBlocks();
+                        }
                         isWorkMode = !isWorkMode;
                         remaining = isWorkMode ? WORK_SECONDS : BREAK_SECONDS;
                         document.getElementById("mode").textContent = isWorkMode ? "勉強中" : "休憩中";
@@ -91,10 +141,12 @@
             isRunning = false;
             isWorkMode = true;
             remaining = WORK_SECONDS;
+            completedPomodoros = 0;
             document.getElementById("mode").textContent = "勉強中";
             document.getElementById("mode").style.color = "#FF6B6B";
             document.getElementById("startBtn").textContent = "スタート";
             updateDisplay();
+            updateBlocks();
         }
     </script>
 </body>
