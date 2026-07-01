@@ -92,6 +92,17 @@
     </div>
 
     <script>
+        // ブラウザ通知の許可を求める
+        if (Notification.permission === "default") {
+            Notification.requestPermission();
+        }
+
+        function sendNotification(title, body) {
+            if (Notification.permission === "granted") {
+                new Notification(title, { body: body });
+            }
+        }
+
         const WORK_SECONDS = 25 * 60;
         const BREAK_SECONDS = 5 * 60;
         const TOTAL_BLOCKS = 40;
@@ -157,6 +168,8 @@
                 // タイマー終了
                 if (isWorkMode) {
                     completedPomodoros++;
+                            sendNotification("🍅 勉強終了！", "お疲れ様でした！休憩しましょう。");
+
                     updateBlocks();
                     if (isCountUpMode) {
                         // カウントアップモード：超過時間を計測・休憩ボタン表示
@@ -167,6 +180,8 @@
                     } else {
                         // ルーティンモード：自動で休憩へ
                         switchMode();
+                    sendNotification("⏰ 休憩終了！", "次のポモドーロを始めましょう！");
+
                         timerId = setTimeout(tick, 1000);
                     }
                 } else {
